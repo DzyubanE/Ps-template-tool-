@@ -294,12 +294,31 @@ textarea.paste-area::placeholder { color: var(--text-3); }
 .result-rows { display: flex; flex-direction: column; }
 .result-row {
   display: grid;
-  grid-template-columns: 196px 1fr;
+  grid-template-columns: 196px 1fr 28px;
   min-height: 32px;
+  align-items: center;
 }
 .result-row + .result-row { border-top: 1px solid #f3f4f6; }
 .result-row:nth-child(odd)  { background: #fff; }
 .result-row:nth-child(even) { background: #fafbfc; }
+
+.del-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  margin: 0 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+}
+.del-btn:hover { background: var(--red-lt); color: var(--red); }
+.result-row:hover .del-btn { display: flex; }
 
 .rk {
   padding: 7px 13px;
@@ -452,9 +471,10 @@ textarea.paste-area::placeholder { color: var(--text-3); }
 
 <script>
 function switchTab(tab) {
-  ['dep','wd','kb'].forEach(t =>
-    document.getElementById('tab-'+t).classList.toggle('hidden', t !== tab)
-  );
+  ['dep','wd','kb'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t !== tab);
+    if (t !== tab) clearAll(t);
+  });
   document.querySelectorAll('.tab-btn').forEach((b,i) =>
     b.classList.toggle('active', ['dep','wd','kb'][i] === tab)
   );
@@ -602,12 +622,20 @@ function renderResults(type, blocks) {
     pill.textContent = block.label;
     title.appendChild(pill);
 
-    const plain = block.plain.join('\n');
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy-btn';
     setIdle(copyBtn);
+
+    // plain text is computed live from visible rows
+    function getPlain() {
+      return Array.from(rowsDiv.querySelectorAll('.result-row'))
+        .map(rd => rd.dataset.plain)
+        .filter(v => v !== undefined)
+        .join('\n');
+    }
+
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(plain).then(() => {
+      navigator.clipboard.writeText(getPlain()).then(() => {
         copyBtn.innerHTML = svgCheck()+' Скопировано';
         copyBtn.classList.add('ok');
         setTimeout(()=>{ setIdle(copyBtn); copyBtn.classList.remove('ok'); }, 2000);
@@ -620,15 +648,29 @@ function renderResults(type, blocks) {
     const rowsDiv = document.createElement('div');
     rowsDiv.className = 'result-rows';
 
-    block.rows.forEach(r => {
-      const rd = document.createElement('div'); rd.className='result-row';
+    block.rows.forEach((r, idx) => {
+      const rd = document.createElement('div');
+      rd.className = 'result-row';
+      // store plain value for copy
+      const plainVal = block.plain[idx] !== undefined ? block.plain[idx] : (r.v || '');
+      rd.dataset.plain = plainVal;
+
       const kd = document.createElement('div'); kd.className='rk'; kd.textContent=r.k;
       const vd = document.createElement('div');
       if (r.s==='label')    { vd.className='rv is-label';   vd.textContent=r.v; }
       else if (r.v===null)  { vd.className='rv is-missing'; vd.textContent='— нет в данных'; }
       else if (r.v==='')    { vd.className='rv is-empty';   vd.textContent='—'; }
       else                  { vd.className='rv';             vd.textContent=r.v; }
-      rd.appendChild(kd); rd.appendChild(vd);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'del-btn';
+      delBtn.title = 'Удалить строку';
+      delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l10 10M13 3L3 13"/></svg>';
+      delBtn.onclick = () => rd.remove();
+
+      rd.appendChild(kd);
+      rd.appendChild(vd);
+      rd.appendChild(delBtn);
       rowsDiv.appendChild(rd);
     });
 
