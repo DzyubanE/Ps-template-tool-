@@ -635,11 +635,7 @@ function renderResults(type, blocks) {
     }
 
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(getPlain()).then(() => {
-        copyBtn.innerHTML = svgCheck()+' Скопировано';
-        copyBtn.classList.add('ok');
-        setTimeout(()=>{ setIdle(copyBtn); copyBtn.classList.remove('ok'); }, 2000);
-      });
+      copyText(getPlain(), copyBtn);
     };
 
     hdr.appendChild(title);
@@ -680,6 +676,31 @@ function renderResults(type, blocks) {
   });
 }
 
+function copyText(text, btn) {
+  const onSuccess = () => {
+    btn.innerHTML = svgCheck()+' Скопировано';
+    btn.classList.add('ok');
+    setTimeout(()=>{ setIdle(btn); btn.classList.remove('ok'); }, 2000);
+  };
+  // Modern API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => execCopy(text, btn, onSuccess));
+  } else {
+    execCopy(text, btn, onSuccess);
+  }
+}
+function execCopy(text, btn, onSuccess) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) onSuccess();
+  } catch(e) {}
+}
 function setIdle(btn) { btn.innerHTML = svgCopy()+' Копировать'; }
 function svgCopy() { return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 11V3h8"/></svg>'; }
 function svgCheck(){ return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 8l4 4 8-8"/></svg>'; }
